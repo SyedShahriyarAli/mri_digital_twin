@@ -1,0 +1,5 @@
+/.venv
+/mri_data
+/__pycache__
+/static/slices
+/static/temp_slices

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}MRI Digital Twin - Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="page-header">
+    <div class="header-left">
+        <h1>MRI Scans</h1>
+        <p class="breadcrumb">Home / MRI Scans</p>
+    </div>
+    <div class="header-right">
+        <div class="stats-card">
+            <i class="fas fa-file-medical"></i>
+            <div>
+                <span class="stat-value" id="total-scans">0</span>
+                <span class="stat-label">Total Scans</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Filters and Search -->
+<section class="controls-section">
+    <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="search-input" placeholder="Search scans by name...">
+    </div>
+    <div class="filter-group">
+        <label>Format:</label>
+        <select id="format-filter" class="filter-select">
+            <option value="all">All Formats</option>
+            <option value="nifti">NIfTI (.nii.gz)</option>
+            <option value="numpy">NumPy (.npy)</option>
+        </select>
+    </div>
+    <button class="btn-refresh" id="refresh-btn">
+        <i class="fas fa-sync-alt"></i> Refresh
+    </button>
+</section>
+
+<!-- Scans Grid -->
+<section class="scans-grid" id="scans-grid">
+    <!-- Grid items will be populated by JavaScript -->
+</section>
+
+<!-- Empty State -->
+<div class="empty-state" id="empty-state" style="display: none;">
+    <i class="fas fa-folder-open"></i>
+    <h3>No Scans Found</h3>
+    <p>No MRI scans match your search criteria.</p>
+</div>
+
+<!-- Loading State -->
+<div class="loading-state" id="loading-state">
+    <div class="spinner"></div>
+    <p>Loading scans...</p>
+</div>
+</main>
+
+<!-- Modal for MRI Viewer -->
+<div class="modal" id="viewer-modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">MRI Viewer</h2>
+            <button class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <!-- Scan Info -->
+            <div class="scan-info-bar" id="scan-info-bar" style="display: none;">
+                <div class="info-item">
+                    <strong>Dimensions:</strong>
+                    <span id="modal-dimensions">-</span>
+                </div>
+                <div class="info-item">
+                    <strong>Format:</strong>
+                    <span id="modal-format">-</span>
+                </div>
+                <div class="info-item">
+                    <button class="btn-transform" id="toggle-transform-btn" onclick="toggleTransformPanel()">
+                        <i class="fas fa-magic"></i> Transformations
+                    </button>
+                </div>
+            </div>
+
+            <!-- Transformation Panel (Collapsible) -->
+            <div class="transform-panel" id="transform-panel" style="display: none;">
+                <div class="transform-header">
+                    <h3><i class="fas fa-wand-magic-sparkles"></i> Apply Transformation</h3>
+                </div>
+                <div class="transform-controls">
+                    <!-- View Selection -->
+                    <div class="control-group">
+                        <label>Select View:</label>
+                        <select id="transform-view" class="control-select">
+                            <option value="axial">Axial</option>
+                            <option value="sagittal">Sagittal</option>
+                            <option value="coronal">Coronal</option>
+                        </select>
+                    </div>
+
+                    <!-- Transformation Type -->
+                    <div class="control-group">
+                        <label>Transformation:</label>
+                        <select id="transform-type" class="control-select" onchange="updateTransformParams()">
+                            <option value="">-- Select Type --</option>
+                            <optgroup label="Noise">
+                                <option value="noise_gaussian">Gaussian Noise</option>
+                                <option value="noise_salt_pepper">Salt & Pepper</option>
+                                <option value="noise_speckle">Speckle Noise</option>
+                            </optgroup>
+                            <optgroup label="Filters">
+                                <option value="filter_gaussian">Gaussian Blur</option>
+                                <option value="filter_median">Median Filter</option>
+                                <option value="filter_sharpen">Sharpen</option>
+                                <option value="filter_edge">Edge Detection</option>
+                            </optgroup>
+                            <optgroup label="Geometric">
+                                <option value="geometric_rotate">Rotate</option>
+                                <option value="geometric_flip">Flip</option>
+                            </optgroup>
+                            <optgroup label="Intensity">
+                                <option value="intensity_brightness">Brightness</option>
+                                <option value="intensity_contrast">Contrast</option>
+                                <option value="intensity_histogram">Histogram Eq.</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <!-- Dynamic Parameters -->
+                    <div id="transform-params" class="transform-params">
+                        <!-- Parameters will be populated dynamically -->
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="transform-actions">
+                        <button class="btn-apply" id="apply-transform-btn" onclick="applyTransformation()">
+                            <i class="fas fa-play"></i> Apply
+                        </button>
+                        <button class="btn-reset" id="reset-transform-btn" onclick="resetTransformation()">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison View Toggle -->
+            <div class="view-toggle" id="view-toggle" style="display: none;">
+                <button class="toggle-btn active" onclick="switchView('normal')">
+                    <i class="fas fa-eye"></i> Normal View
+                </button>
+                <button class="toggle-btn" onclick="switchView('comparison')">
+                    <i class="fas fa-columns"></i> Comparison View
+                </button>
+            </div>
+
+            <!-- Normal Three Views -->
+            <div class="viewer-grid" id="normal-view">
+                <!-- Axial View -->
+                <div class="view-panel">
+                    <div class="view-header">
+                        <h3>Axial View</h3>
+                        <span class="slice-info">
+                            Slice: <span id="axial-current">-</span> / <span id="axial-total">-</span>
+                        </span>
+                    </div>
+                    <div class="image-container">
+                        <img id="axial-image" alt="Axial view" class="mri-image" style="display: none;">
+                        <div class="loading-spinner" id="axial-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="axial-slider" class="slider" min="0" max="100" value="50" disabled>
+                    </div>
+                </div>
+
+                <!-- Sagittal View -->
+                <div class="view-panel">
+                    <div class="view-header">
+                        <h3>Sagittal View</h3>
+                        <span class="slice-info">
+                            Slice: <span id="sagittal-current">-</span> / <span id="sagittal-total">-</span>
+                        </span>
+                    </div>
+                    <div class="image-container">
+                        <img id="sagittal-image" alt="Sagittal view" class="mri-image" style="display: none;">
+                        <div class="loading-spinner" id="sagittal-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="sagittal-slider" class="slider" min="0" max="100" value="50" disabled>
+                    </div>
+                </div>
+
+                <!-- Coronal View -->
+                <div class="view-panel">
+                    <div class="view-header">
+                        <h3>Coronal View</h3>
+                        <span class="slice-info">
+                            Slice: <span id="coronal-current">-</span> / <span id="coronal-total">-</span>
+                        </span>
+                    </div>
+                    <div class="image-container">
+                        <img id="coronal-image" alt="Coronal view" class="mri-image" style="display: none;">
+                        <div class="loading-spinner" id="coronal-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="coronal-slider" class="slider" min="0" max="100" value="50" disabled>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison View (Original vs Transformed) -->
+            <div class="comparison-view" id="comparison-view" style="display: none;">
+                <div class="comparison-grid">
+                    <!-- Original -->
+                    <div class="comparison-panel">
+                        <h3>Original</h3>
+                        <div class="image-container">
+                            <img id="comparison-original" alt="Original" class="mri-image">
+                        </div>
+                    </div>
+
+                    <!-- Transformed -->
+                    <div class="comparison-panel">
+                        <h3>Transformed</h3>
+                        <div class="image-container">
+                            <img id="comparison-transformed" alt="Transformed" class="mri-image">
+                        </div>
+                    </div>
+
+                    <!-- Difference Map -->
+                    <div class="comparison-panel">
+                        <h3>Difference Map</h3>
+                        <div class="image-container">
+                            <img id="comparison-diff" alt="Difference" class="mri-image">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics Display -->
+                <div class="metrics-panel" id="metrics-panel" style="display: none;">
+                    <h3><i class="fas fa-chart-line"></i> Quality Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">PSNR</div>
+                            <div class="metric-value" id="metric-psnr">-</div>
+                            <div class="metric-unit">dB</div>
+                            <div class="metric-assessment" id="assessment-psnr">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">SSIM</div>
+                            <div class="metric-value" id="metric-ssim">-</div>
+                            <div class="metric-unit">0-1</div>
+                            <div class="metric-assessment" id="assessment-ssim">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">MSE</div>
+                            <div class="metric-value" id="metric-mse">-</div>
+                            <div class="metric-unit"></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">MAE</div>
+                            <div class="metric-value" id="metric-mae">-</div>
+                            <div class="metric-unit"></div>
+                        </div>
+                    </div>
+                    <div class="overall-assessment">
+                        <strong>Overall:</strong>
+                        <span id="assessment-overall">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+{% endblock %}

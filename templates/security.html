@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}MRI Digital Twin - Security Testing{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/security.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="page-header">
+    <div class="header-left">
+        <h1>Security Testing</h1>
+        <p class="breadcrumb">Home / Security Testing</p>
+    </div>
+    <div class="header-right">
+        <div class="status-card" id="integrity-status">
+            <i class="fas fa-shield-alt"></i>
+            <div>
+                <span class="status-value">SECURE</span>
+                <span class="status-label">System Status</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Scan Selection Section -->
+<section class="scan-selection-section">
+    <div class="section-card">
+        <h3><i class="fas fa-file-medical"></i> Select MRI Scan</h3>
+        <div class="scan-selector-group">
+            <select id="scan-select" class="control-select">
+                <option value="">-- Select a scan to test --</option>
+            </select>
+            <button class="btn-load" id="load-scan-btn" onclick="loadScanForTesting()">
+                <i class="fas fa-upload"></i> Load Scan
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- Main Security Testing Area -->
+<section class="security-testing-area" id="testing-area" style="display: none;">
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="panel-group">
+            <h3><i class="fas fa-sliders-h"></i> Attack Simulation</h3>
+            <div class="control-row">
+                <div class="control-item">
+                    <label>Attack Type:</label>
+                    <select id="attack-type" class="control-select">
+                        <option value="">-- Select Attack Type --</option>
+                        <optgroup label="Data Tampering">
+                            <option value="pixel_modification">Pixel Value Modification</option>
+                            <option value="region_deletion">Region Deletion</option>
+                            <option value="region_blur">Region Blur</option>
+                        </optgroup>
+                        <optgroup label="Metadata Manipulation">
+                            <option value="date_modification">Date Modification</option>
+                            <option value="scanner_modification">Scanner Type Change</option>
+                            <option value="parameter_modification">Parameter Tampering</option>
+                        </optgroup>
+                        <optgroup label="Noise Injection">
+                            <option value="gaussian_noise">Gaussian Noise</option>
+                            <option value="salt_pepper">Salt & Pepper Noise</option>
+                            <option value="motion_artifact">Motion Artifact</option>
+                        </optgroup>
+                        <optgroup label="File Corruption">
+                            <option value="header_corruption">Header Corruption</option>
+                            <option value="data_corruption">Data Corruption</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="control-item">
+                    <label>Intensity:</label>
+                    <select id="attack-intensity" class="control-select">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn-attack" id="inject-attack-btn" onclick="injectAttack()">
+                    <i class="fas fa-biohazard"></i> Inject Attack
+                </button>
+                <button class="btn-detect" id="run-detection-btn" onclick="runDetection()" disabled>
+                    <i class="fas fa-search"></i> Run Detection
+                </button>
+                <button class="btn-reset" id="reset-btn" onclick="resetScan()" disabled>
+                    <i class="fas fa-undo"></i> Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison View -->
+    <div class="comparison-section">
+        <div class="comparison-grid">
+            <!-- Original Image -->
+            <div class="image-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-check-circle"></i> Original Image</h3>
+                    <span class="badge badge-success">Normal</span>
+                </div>
+                <div class="image-container">
+                    <img id="original-image" alt="Original MRI" class="security-image">
+                    <div class="loading-spinner" id="original-spinner" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Loading...</p>
+                    </div>
+                </div>
+                <div class="image-info" id="original-info">
+                    <div class="info-row">
+                        <span class="info-label">View:</span>
+                        <span class="info-value">Axial</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Slice:</span>
+                        <span class="info-value" id="original-slice">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tampered Image -->
+            <div class="image-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Current Image</h3>
+                    <span class="badge badge-info" id="tamper-badge">Normal</span>
+                </div>
+                <div class="image-container">
+                    <img id="tampered-image" alt="Tampered MRI" class="security-image">
+                    <div class="loading-spinner" id="tampered-spinner" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Processing...</p>
+                    </div>
+                </div>
+                <div class="image-info" id="tampered-info">
+                    <div class="info-row">
+                        <span class="info-label">View:</span>
+                        <span class="info-value">Axial</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Slice:</span>
+                        <span class="info-value" id="tampered-slice">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slider for slice selection -->
+        <div class="slice-control">
+            <label><i class="fas fa-layer-group"></i> Select Slice:</label>
+            <input type="range" id="slice-slider" class="slider" min="0" max="100" value="50" disabled>
+            <span id="slice-display">50</span>
+        </div>
+    </div>
+
+    <!-- Metadata Comparison -->
+    <div class="metadata-section" id="metadata-section">
+        <h3><i class="fas fa-database"></i> Metadata Comparison</h3>
+        <div class="metadata-grid">
+            <div class="metadata-column">
+                <h4>Original Metadata</h4>
+                <div class="metadata-list" id="original-metadata">
+                    <div class="metadata-item">
+                        <span class="meta-label">Scan Date:</span>
+                        <span class="meta-value" id="orig-date">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Scanner:</span>
+                        <span class="meta-value" id="orig-scanner">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">TR (ms):</span>
+                        <span class="meta-value" id="orig-tr">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">TE (ms):</span>
+                        <span class="meta-value" id="orig-te">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">File Hash:</span>
+                        <span class="meta-value hash-value" id="orig-hash">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metadata-column">
+                <h4>Current Metadata</h4>
+                <div class="metadata-list" id="current-metadata">
+                    <div class="metadata-item">
+                        <span class="meta-label">Scan Date:</span>
+                        <span class="meta-value" id="curr-date">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Scanner:</span>
+                        <span class="meta-value" id="curr-scanner">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">TR (ms):</span>
+                        <span class="meta-value" id="curr-tr">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">TE (ms):</span>
+                        <span class="meta-value" id="curr-te">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">File Hash:</span>
+                        <span class="meta-value hash-value" id="curr-hash">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detection Results -->
+    <div class="detection-section" id="detection-section" style="display: none;">
+        <h3><i class="fas fa-shield-virus"></i> Detection Results</h3>
+
+        <div class="detection-grid">
+            <!-- Hash Verification -->
+            <div class="detection-card">
+                <div class="detection-header">
+                    <i class="fas fa-fingerprint"></i>
+                    <h4>Hash Verification</h4>
+                </div>
+                <div class="detection-body">
+                    <div class="detection-status" id="hash-status">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Checking...</span>
+                    </div>
+                    <div class="detection-details" id="hash-details"></div>
+                </div>
+            </div>
+
+            <!-- Anomaly Detection -->
+            <div class="detection-card">
+                <div class="detection-header">
+                    <i class="fas fa-chart-line"></i>
+                    <h4>Anomaly Detection</h4>
+                </div>
+                <div class="detection-body">
+                    <div class="detection-status" id="anomaly-status">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Analyzing...</span>
+                    </div>
+                    <div class="detection-details" id="anomaly-details"></div>
+                </div>
+            </div>
+
+            <!-- Metadata Validation -->
+            <div class="detection-card">
+                <div class="detection-header">
+                    <i class="fas fa-clipboard-check"></i>
+                    <h4>Metadata Validation</h4>
+                </div>
+                <div class="detection-body">
+                    <div class="detection-status" id="metadata-status">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Validating...</span>
+                    </div>
+                    <div class="detection-details" id="metadata-details"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overall Assessment -->
+        <div class="assessment-card" id="assessment-card">
+            <div class="assessment-icon" id="assessment-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="assessment-content">
+                <h3 id="assessment-title">Assessment</h3>
+                <p id="assessment-message">Running security checks...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attack Log -->
+    <div class="log-section">
+        <h3><i class="fas fa-history"></i> Attack & Detection Log</h3>
+        <div class="log-container" id="log-container">
+            <div class="log-empty">
+                <i class="fas fa-clipboard-list"></i>
+                <p>No activities yet. Select an attack to begin testing.</p>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+<!-- Empty State -->
+<div class="empty-state" id="empty-state">
+    <i class="fas fa-shield-alt"></i>
+    <h3>Security Testing Dashboard</h3>
+    <p>Select an MRI scan to begin security testing and attack simulation.</p>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/security.js') }}"></script>
+{% endblock %}

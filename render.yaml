@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: mri-digital-twin
+    runtime: python
+    buildCommand: |
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+      export PATH="$HOME/.cargo/bin:$PATH"
+      uv sync
+      python mri_processing/main_pipeline.py --all
+    startCommand: gunicorn app:app
