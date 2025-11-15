@@ -1,9 +1,9 @@
 import argparse
 import sys
 
-from download_mri import IXIDownloader
-from preprocess_mri import MRIPreprocessor
-from generate_metadata import MetadataGenerator
+from mri_processing.download_mri import IXIDownloader
+from mri_processing.preprocess_mri import MRIPreprocessor
+from mri_processing.generate_metadata import MetadataGenerator
 
 class MRIPipeline:
     def __init__(self):

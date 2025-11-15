@@ -17,6 +17,7 @@ from digital_twin.mri_loader import MRILoader
 from digital_twin.visualizer import MRIVisualizer
 from digital_twin.transformer import MRITransformer
 from digital_twin.comparator import MRIComparator
+from mri_processing.main_pipeline import MRIPipeline
 
 # Configure logging
 logging.basicConfig(
@@ -669,7 +670,20 @@ def security_reset_scan():
     except Exception as e:
         logger.error(f"Error resetting scan: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+    
 
+@app.route('/api/process_data', methods=['GET'])
+def process_data():
+    """Process data endpoint for testing purposes."""
+    try:
+        pipeline = MRIPipeline()
+        success = pipeline.run_complete_pipeline()
+        
+        return jsonify({ 'success': success })
+    
+    except Exception as e:
+        logger.error(f"Error processing data: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 
 @app.errorhandler(404)
