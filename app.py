@@ -685,22 +685,22 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 
-# def main():
-#     """Run the Flask application."""
-#     # Check if required directories exist
-#     required_dirs = ['templates', 'static', 'static/slices', 'static/css']
-#     for directory in required_dirs:
-#         Path(directory).mkdir(parents=True, exist_ok=True)
+def main():
+    """Run the Flask application."""
+    # Check if required directories exist
+    required_dirs = ['templates', 'static', 'static/slices', 'static/css']
+    for directory in required_dirs:
+        Path(directory).mkdir(parents=True, exist_ok=True)
     
-#     # Run the app
-#     port = int(os.environ.get('PORT', 5000))
-#     debug = os.environ.get('FLASK_ENV') == 'development'
+    # Run the app
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
     
-#     logger.info(f"Starting MRI Digital Twin Viewer on port {port}")
-#     logger.info(f"Debug mode: {debug}")
+    logger.info(f"Starting MRI Digital Twin Viewer on port {port}")
+    logger.info(f"Debug mode: {debug}")
     
-#     app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(host='0.0.0.0', port=port, debug=debug)
 
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
